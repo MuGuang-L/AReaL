@@ -67,7 +67,7 @@ def test_llm_consistency(model_path, mock_padded_llm_data):
     config = TrainEngineConfig(
         path=model_path,
         dtype="bfloat16",
-        attn_impl="flash_attention_2",
+        attn_impl="sdpa",
         gradient_checkpointing=False,
         disable_dropout=True,
         init_from_scratch=True,
@@ -233,7 +233,7 @@ def test_vlm_consistency(model_path):
     config = TrainEngineConfig(
         path=model_path,
         dtype="bfloat16",
-        attn_impl="flash_attention_2",
+        attn_impl="sdpa",
         gradient_checkpointing=False,
         disable_dropout=True,
         init_from_scratch=False,

@@ -129,6 +129,7 @@ class HttpClientManager:
                 timeout=timeout,
                 read_bufsize=1024 * 1024 * 10,
                 connector=get_default_connector(),
+                trust_env=False,  # Disable proxy for internal service communication
             )
             # Track which event loop this session belongs to
             self._event_loop = asyncio.get_running_loop()

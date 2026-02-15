@@ -380,6 +380,7 @@ class LocalScheduler(Scheduler):
         async with aiohttp.ClientSession(
             timeout=timeout,
             connector=get_default_connector(),
+            trust_env=False,  # Disable proxy for internal service communication
         ) as session:
             tasks = []
             for worker_info in workers:
@@ -411,6 +412,7 @@ class LocalScheduler(Scheduler):
         async with aiohttp.ClientSession(
             timeout=timeout,
             connector=get_default_connector(),
+            trust_env=False,  # Disable proxy for internal service communication
         ) as session:
             # Launch all fork requests concurrently with exception handling
             tasks = [
@@ -1005,6 +1007,7 @@ class LocalScheduler(Scheduler):
             async with aiohttp.ClientSession(
                 timeout=timeout,
                 connector=get_default_connector(),
+                trust_env=False,  # Disable proxy for internal service communication
             ) as session:
                 async with session.post(
                     url,
@@ -1101,6 +1104,7 @@ class LocalScheduler(Scheduler):
                 timeout=timeout,
                 read_bufsize=1024 * 1024 * 10,
                 connector=get_default_connector(),
+                trust_env=False,  # Disable proxy for internal service communication
             ) as session:
                 async with session.post(
                     url,
@@ -1378,6 +1382,7 @@ class LocalScheduler(Scheduler):
                     timeout=timeo,
                     read_bufsize=1024 * 1024 * 10,
                     connector=get_default_connector(),
+                    trust_env=False,  # Disable proxy for internal service communication
                 ) as session:
                     async with session.post(
                         url,

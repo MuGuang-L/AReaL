@@ -1,0 +1,203 @@
+# GSM8K GRPO 配置 - 4卡 H20 (2推理 + 2训练)
+experiment_name: gsm8k-grpo-4gpu
+trial_name: trial0
+
+seed: 1
+enable_offload: false
+total_train_epochs: 10
+tokenizer_path: ${actor.path}
+
+cluster:
+  n_nodes: 1
+  n_gpus_per_node: 4
+  fileroot: /tmp/areal/experiments
+  name_resolve:
+    type: nfs
+    nfs_record_root: /tmp/areal/name_resolve
+
+# 2卡推理(vllm:d2p1t1) + 2卡训练(d2p1t1)
+allocation_mode: vllm:d2p1t1+d2p1t1
+
+scheduler:
+  type: local
+
+rollout:
+  experiment_name: ${experiment_name}
+  trial_name: ${trial_name}
+  max_concurrent_rollouts: 64
+  queue_size: null
+  consumer_batch_size: ${train_dataset.batch_size}
+  max_head_offpolicyness: 2
+  enable_rollout_tracing: false
+  use_lora: true
+  scheduling_spec: ${actor.scheduling_spec}
+  fileroot: ${cluster.fileroot}
+  tokenizer_path: ${tokenizer_path}
+  dump_to_file: true
+
+gconfig:
+  n_samples: 4
+  min_new_tokens: 0
+  # GSM8K 答案一般 < 500 tokens，1024 足够
+  max_new_tokens: 1024
+  greedy: false
+  temperature: 1.0
+  lora_name: "lora-gsm8k"
+
+actor:
+  experiment_name: ${experiment_name}
+  trial_name: ${trial_name}
+  # 注意: 建议使用非 FP8 模型进行 RL 训练
+  # FP8 模型在训练时可能会有精度问题
+  # 可选模型: Qwen/Qwen3-8B, Qwen/Qwen2.5-7B-Instruct
+  path: /root/paddlejob/workspace/long/Qwen3-8B-FP8
+  init_from_scratch: false
+  disable_dropout: true
+  gradient_checkpointing: true
+  dtype: bfloat16
+  attn_impl: sdpa
+  mb_spec:
+    # 减小 tokens 数量以避免 OOM
+    max_tokens_per_mb: 4096
+    n_mbs: 2
+  optimizer:
+    type: adam
+    # LoRA 训练通常需要更高的学习率
+    lr: 1.0e-4
+    weight_decay: 0.01
+    beta1: 0.9
+    beta2: 0.999
+    eps: 1e-8
+    lr_scheduler_type: constant
+    gradient_clipping: 1.0
+    warmup_steps_proportion: 0.001
+  eps_clip: 0.4
+  temperature: ${gconfig.temperature}
+  reward_scaling: 10.0
+  reward_bias: -0.5
+  kl_ctl: 0.0
+  ppo_n_minibatches: 1
+  recompute_logprob: true
+  use_decoupled_loss: true
+  behav_imp_weight_cap: 5.0
+  reward_norm:
+    mean_level: group
+    std_level: group
+    group_size: ${gconfig.n_samples}
+  adv_norm:
+    mean_level: batch
+    std_level: batch
+  weight_update_mode: xccl
+  max_new_tokens: ${gconfig.max_new_tokens}
+  # LoRA 配置
+  use_lora: ${rollout.use_lora}
+  peft_type: lora
+  lora_rank: 16
+  lora_alpha: 16
+  target_modules: [all-linear]
+  scheduling_spec:
+    - task_type: worker
+      port_count: 2
+      gpu: 1
+      mem: 32
+      cmd: python3 -m areal.infra.rpc.rpc_server
+      env_vars: {}
+
+ref:
+  experiment_name: ${experiment_name}
+  trial_name: ${trial_name}
+  path: ${actor.path}
+  init_from_scratch: false
+  disable_dropout: true
+  dtype: ${actor.dtype}
+  attn_impl: sdpa
+  mb_spec:
+    max_tokens_per_mb: 8192
+  optimizer: null
+  scheduling_strategy:
+    type: colocation
+    target: actor
+  scheduling_spec: ${actor.scheduling_spec}
+
+# SGLang 推理引擎配置
+sglang:
+  model_path: ${actor.path}
+  random_seed: ${seed}
+  skip_tokenizer_init: true
+  dtype: ${actor.dtype}
+  max_running_requests: null
+  context_length: 32768
+  mem_fraction_static: 0.85
+  attention_backend: triton
+
+vllm:
+  model: ${actor.path}
+  seed: ${seed}
+  skip_tokenizer_init: false
+  dtype: ${actor.dtype}
+  # GSM8K 问题+答案通常 < 2000 tokens，4096 足够
+  max_model_len: 4096
+  gpu_memory_utilization: 0.85
+  enable_lora: ${rollout.use_lora}
+  enforce_eager: true
+
+# 数据集配置 - 减小 batch_size 以适应4卡
+train_dataset:
+  batch_size: 64
+  shuffle: true
+  pin_memory: true
+  num_workers: 4
+  path: openai/gsm8k
+  type: rl
+  max_length: 1024
+
+valid_dataset:
+  batch_size: 64
+  pin_memory: true
+  num_workers: 4
+  path: openai/gsm8k
+  type: rl
+
+# 保存配置
+saver:
+  experiment_name: ${experiment_name}
+  trial_name: ${trial_name}
+  fileroot: ${cluster.fileroot}
+  freq_epochs: 1
+  freq_steps: null
+  freq_secs: null
+
+recover:
+  mode: disabled
+  experiment_name: ${experiment_name}
+  trial_name: ${trial_name}
+  fileroot: ${cluster.fileroot}
+  freq_epochs: 1
+  freq_steps: null
+  freq_secs: 3600
+
+evaluator:
+  experiment_name: ${experiment_name}
+  trial_name: ${trial_name}
+  fileroot: ${cluster.fileroot}
+  freq_epochs: 1
+  freq_steps: null
+  freq_secs: null
+
+# WandB 默认开启
+stats_logger:
+  experiment_name: ${experiment_name}
+  trial_name: ${trial_name}
+  fileroot: ${cluster.fileroot}
+  wandb:
+    mode: online
+    project: gsm8k-grpo
+    name: ${experiment_name}-${trial_name}
+
+perf_tracer:
+  experiment_name: ${experiment_name}
+  trial_name: ${trial_name}
+  fileroot: ${cluster.fileroot}
+  enabled: false
+  session_tracer:
+    enabled: false

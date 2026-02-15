@@ -1146,6 +1146,7 @@ class RemoteInfEngine(InferenceEngine):
                 timeout=aiohttp.ClientTimeout(total=self.config.request_timeout),
                 read_bufsize=1024 * 1024 * 10,
                 connector=get_default_connector(),
+                trust_env=False,  # Disable proxy for internal service communication
             ) as session:
                 jobs = []
                 for addr in self.addresses:
@@ -1239,6 +1240,7 @@ def _update_weights_from_disk(
             timeout=aiohttp.ClientTimeout(total=request_timeout),
             read_bufsize=1024 * 1024 * 10,
             connector=get_default_connector(),
+            trust_env=False,  # Disable proxy for internal service communication
         ) as session:
             for http_req in weight_reqs.requests:
                 jobs = [
@@ -1285,6 +1287,7 @@ def _init_weights_update_group_remote(
             timeout=aiohttp.ClientTimeout(total=request_timeout),
             read_bufsize=1024 * 1024 * 10,
             connector=get_default_connector(),
+            trust_env=False,  # Disable proxy for internal service communication
         ) as session:
             jobs = []
             for i, addr in enumerate(addresses):
@@ -1330,6 +1333,7 @@ def _update_weights_from_distributed(
             timeout=aiohttp.ClientTimeout(total=request_timeout),
             read_bufsize=1024 * 1024 * 10,
             connector=get_default_connector(),
+            trust_env=False,  # Disable proxy for internal service communication
         ) as session:
             for http_req in weight_reqs.requests:
                 jobs = [

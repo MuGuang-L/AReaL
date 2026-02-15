@@ -14,7 +14,10 @@ logger = logging.getLogger("HTTPUtils")
 
 
 def get_default_connector():
-    return aiohttp.TCPConnector(limit=0, use_dns_cache=False, force_close=True)
+    # Disable proxy for internal service communication (trust_env=False)
+    return aiohttp.TCPConnector(
+        limit=0, use_dns_cache=False, force_close=True, trust_env=False
+    )
 
 
 async def arequest_with_retry(

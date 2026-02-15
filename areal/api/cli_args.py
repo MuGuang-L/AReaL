@@ -803,10 +803,10 @@ class TrainEngineConfig:
     trial_name: str = MISSING
     path: str = field(default="", metadata={"help": "Path to HuggingFace checkpoint"})
     attn_impl: str = field(
-        default="flash_attention_2",
+        default="sdpa",
         metadata={
             "help": "Attention implementation for huggingface transformers model.",
-            "choices": ["flash_attention_2"],
+            "choices": ["sdpa", "flash_attention_2", "eager"],
         },
     )
     init_from_scratch: bool = field(
